@@ -32,12 +32,13 @@
   <script>
     const socket = io('http://localhost:3000');
 
-    let clientID = null; // ID do cliente
+    let clientID = null;
     let videoPlayer;
-    let isSeeking = false; // Variável de controle para evitar loops
+    let isSeeking = false;
+    let isPlaying = false; 
 
     socket.on('connect', () => {
-      clientID = socket.id; // Obtém o ID do cliente ao conectar
+      clientID = socket.id; 
       console.log('Conectado ao servidor Socket.IO com ID:', clientID);
     });
 
@@ -52,37 +53,43 @@
         videoPlayer.play();
 
         videoPlayer.addEventListener("play", () => {
-          socket.emit("videoState", { playing: true, id: clientID });
+          if (!isPlaying) { 
+            socket.emit("videoState", { playing: true, id: clientID });
+            isPlaying = true; 
+          }
         });
 
         videoPlayer.addEventListener("pause", () => {
-          socket.emit("videoState", { playing: false, id: clientID });
+          if (isPlaying) {
+            socket.emit("videoState", { playing: false, id: clientID });
+            isPlaying = false; 
+          }
         });
 
         videoPlayer.addEventListener("seeked", () => {
-          if (!isSeeking) { // Só emite se não estiver sincronizando de outro cliente
+          if (!isSeeking) {
             socket.emit("videoSeek", { currentTime: videoPlayer.currentTime, id: clientID });
           }
-          isSeeking = false; // Redefine a variável após a emissão
+          isSeeking = false; 
         });
       }
     }
 
-    // Recebe o estado de reprodução do vídeo de outros clientes
     socket.on('videoState', (data) => {
       if (data.id !== clientID) {
         if (data.playing) {
           videoPlayer.play();
+          isPlaying = true; 
         } else {
           videoPlayer.pause();
+          isPlaying = false; 
         }
       }
     });
 
-    // Recebe o evento de posição do vídeo de outros clientes
     socket.on('videoSeek', (data) => {
       if (data.id !== clientID) {
-        isSeeking = true; // Define para evitar loop
+        isSeeking = true; 
         videoPlayer.currentTime = data.currentTime;
       }
     });
