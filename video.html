@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sincronização de Reprodução de Vídeo</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      width: 100%;
+    }
+
+    .video-player {
+      width: 640px;
+      height: 360px;
+      background-color: black;
+    }
+  </style>
+</head>
+<body>
+  <h2>Escolha um vídeo para reproduzir</h2>
+
+  <input type="file" id="fileInput" accept="video/*" onchange="loadVideo(event)">
+
+  <video id="videoPlayer" controls></video>
+
+  <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+  <script>
+    const socket = io('http://localhost:3000');
+
+    let clientID = null; // ID do cliente
+    let videoPlayer;
+    let isSeeking = false; // Variável de controle para evitar loops
+
+    socket.on('connect', () => {
+      clientID = socket.id; // Obtém o ID do cliente ao conectar
+      console.log('Conectado ao servidor Socket.IO com ID:', clientID);
+    });
+
+    function loadVideo(event) {
+      videoPlayer = document.getElementById("videoPlayer");
+      const file = event.target.files[0];
+
+      if (file) {
+        const fileURL = URL.createObjectURL(file);
+        videoPlayer.src = fileURL;
+        videoPlayer.load();
+        videoPlayer.play();
+
+        videoPlayer.addEventListener("play", () => {
+          socket.emit("videoState", { playing: true, id: clientID });
+        });
+
+        videoPlayer.addEventListener("pause", () => {
+          socket.emit("videoState", { playing: false, id: clientID });
+        });
+
+        videoPlayer.addEventListener("seeked", () => {
+          if (!isSeeking) { // Só emite se não estiver sincronizando de outro cliente
+            socket.emit("videoSeek", { currentTime: videoPlayer.currentTime, id: clientID });
+          }
+          isSeeking = false; // Redefine a variável após a emissão
+        });
+      }
+    }
+
+    // Recebe o estado de reprodução do vídeo de outros clientes
+    socket.on('videoState', (data) => {
+      if (data.id !== clientID) {
+        if (data.playing) {
+          videoPlayer.play();
+        } else {
+          videoPlayer.pause();
+        }
+      }
+    });
+
+    // Recebe o evento de posição do vídeo de outros clientes
+    socket.on('videoSeek', (data) => {
+      if (data.id !== clientID) {
+        isSeeking = true; // Define para evitar loop
+        videoPlayer.currentTime = data.currentTime;
+      }
+    });
+  </script>
+</body>
+</html>
