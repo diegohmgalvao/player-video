@@ -20,13 +20,11 @@ app.use((req, res, next) => {
 io.on('connection', (socket) => {
     console.log('Cliente conectado com ID:', socket.id);
 
-    // Recebe o estado do vídeo de um cliente e retransmite para outros clientes
     socket.on('videoState', (data) => {
         console.log(`Estado do vídeo recebido de ${socket.id}:`, data);
         socket.broadcast.emit('videoState', { ...data, id: socket.id });
     });
 
-    // Recebe o evento de posição do vídeo e retransmite para os outros clientes
     socket.on('videoSeek', (data) => {
         console.log(`Posição do vídeo recebida de ${socket.id}:`, data.currentTime);
         socket.broadcast.emit('videoSeek', { ...data, id: socket.id });
